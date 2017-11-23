@@ -6,10 +6,10 @@ import os
 import cv2
 import tensorflow as tf
 
-data_path = "../../Data/Faces/"
 epochs = 30
 batch_size = 16
 IMAGE_SIZE = (160, 160)
+data_path = "../../Data/Faces/"
 
 def get_paths_and_labels(path):
     """ Returns:
@@ -47,15 +47,14 @@ def main():
             unique_labels.append(l)
     num_classes = len(unique_labels)
 
-
     # Placeholders
     x = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE[0] * IMAGE_SIZE[1]])
-    y_ = tf.placeholder(tf.int32, [num_classes])
+    y_ = tf.placeholder(tf.int32, [None, num_classes])
 
     # Convolution 1
     weight_conv1 = weight_variable([5, 5, 1, 32])
     bias_conv1 = bias_variable([32])
-    x_image = tf.reshape(x, [-1, 160, 160, 1])
+    x_image = tf.reshape(x, [-1, IMAGE_SIZE[0], IMAGE_SIZE[1], 1])
     h_conv1 = tf.nn.relu(conv2d(x_image, weight_conv1) + bias_conv1)
 
     # Pooling 1 : 160x160 -> 80x80
@@ -96,14 +95,14 @@ def main():
                 # curr_batch = image_tensors[batch*batch_size:(1+batch) * batch_size]
 
                 # Read images, convert to grayscale and resize to 160*160 (by default they are 161*161)
-                curr_batch = images[batch * batch_size : (1 + batch) * batch_size]
+                curr_batch = images[batch * batch_size : (batch + 1) * batch_size]
                 gray_batch = [cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) for image in curr_batch]
                 resized_batch = [cv2.resize(i, IMAGE_SIZE, interpolation=cv2.INTER_AREA) for i in gray_batch]
                 # Flatten images and feed into network
                 flat_batch = [i.flatten() for i in resized_batch]
                 curr_batch = flat_batch
                 # Get labels
-                curr_labels = all_labels[batch * batch_size : (1 + batch) * batch_size]
+                curr_labels = all_labels[batch * batch_size : (batch + 1) * batch_size]
                 sess.run([train_step], feed_dict={x:curr_batch, y_:curr_labels, keep:0.7})
             # curr_batch = next_batch(10, image_tensors, all_labels)
             if i % 10 == 0:
