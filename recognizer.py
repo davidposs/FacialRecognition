@@ -1,97 +1,117 @@
-""" Facial recognition program """
+# -*- coding: utf-8 -*-
+""" Facial Recognition Program """
 
+import re
 import os
 import cv2
-import sys
-import re
-import numpy as np
+import tensorflow as tf
 
-def find_face(image):
-    # Find a face within an image and returned the gray-scaled window it is in
-    grayed = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    cascades = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    # Grab the faces
-    faces = cascades.detectMultiScale(grayed, scaleFactor=1.1, minNeighbors = 5)
-    if len(faces) == 0:
-        return None, None
-    x, y, w, h = faces[0]
-    return grayed[y:y+w, x:x+h], faces[0]
+data_path = "../../Data/Faces/"
+epochs = 30
+batch_size = 16
+IMAGE_SIZE = (160, 160)
 
+def get_paths_and_labels(path):
+    """ Returns:
+            image_paths: list of relative image paths
+            labels:      list of integers starting from 1 """
+    image_paths = [path + image for image in os.listdir(path)]
+    labels = [int(re.findall(r'\d+', image)[0]) for image in image_paths]
+    return image_paths, labels
 
-cascades = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-model = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8)
+def weight_variable(shape):
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(initial)
 
-path_name = "../../Data/Faces/subject01centerlight.jpg"
-image_paths = [os.path.join("../../Data/Faces/", f) for f in os.listdir("../../Data/Faces") if not f.endswith("centerlight.jpg")]
-#print (path_name.find("Faces"))
-#for im in image_paths:
-#    label = int(re.findall(r'\d+', im)[0])
-#    print (label)
-    #name = im.split("/")[-1]  #+ str(label)
-    #name = name[0:name.find(str(label)) + len(str(label))]
-    #print (name + "              " + im + "\t\t\t " + str(label))
-#    print (label)
+def bias_variable(shape):
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable(initial)
 
+def conv2d(x, W):
+    return tf.nn.conv2d(x, W, strides = [1,1,1,1], padding='SAME')
 
+def max_pool_2x2(x):
+    return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
-#sys.exit()
-#print (image_paths)
+def main():
+    all_images, all_labels = get_paths_and_labels(data_path)
+    images = [cv2.imread(image) for image in all_images]
+    num_images = len(all_images)
 
-def preprocess(path, omit):
-    """ Preprocess our data """
-    image_paths = [os.path.join(path, f) for f in os.listdir(path) if not f.endswith(omit)]
-    faces = []
-    labels = []
-    # Go through each subject in the data folder
-    for image_path in image_paths:
-        # Get an image and apply a grayscale to it
-        image = cv2.imread(image_path)
-        #image = np.array(image, 'uint8')
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # remove file extension to get label
-        ##### label = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
-        image = np.array(image, 'uint8')
-        label = int(re.findall(r'\d+', image_path)[0])
-        #name = image_path.split("/")[-1]
-        #name = name[0:name.find(str(label)) + len(str(label))]
-        detected_faces = cascades.detectMultiScale(image)
-        # Create a label for each image
-        for (x, y, w, h) in detected_faces:
-            faces.append(image[y:y+h, x:x+w])
-            labels.append(label)
+    # image_tensors = [tf.image.encode_jpeg(image) for image in images]
+    # image_dataset = tf.data.Dataset.from_tensors(image_tensors)
 
-    return faces, labels
-
-path = "../../Data/Faces/"
-omit = "centerlight.jpg"
-faces, labels = preprocess(path, omit)
-print ("total faces: %s\ntotal labels %s" % (len(faces), len(labels)))
-#sys.exit()
-# Create Local Binary Pattern Histogram for faces
-model.train(faces, np.array(labels))
-
-def predict(image):
-    img = image.copy()
-    face, rect = find_face(img)
-    label, confidence = model.predict(face)
-    #label_text = persons[label]
-    return label, confidence
+    unique_labels = []
+    for l in all_labels:
+        if l not in unique_labels:
+            unique_labels.append(l)
+    num_classes = len(unique_labels)
 
 
-print ("Prediction time!")
-image_paths = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(omit)]
-for image_path in image_paths:
-    predict_image = cv2.imread(image_path)
-    predict_image = cv2.cvtColor(predict_image, cv2.COLOR_BGR2GRAY)
-    predict_image = np.array(predict_image, 'uint8')
-    faces = cascades.detectMultiScale(predict_image)
-    for (x, y, w, h) in faces:
-        cv2.imshow("Recognizing Face", predict_image[y: y + h, x: x + w])
-        cv2.waitKey(1000)
-        predict_label, confidence = model.predict(predict_image[y:y+h, x:x+w])
-        #actual = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
-        actual = int(re.findall(r'\d+', image_path)[0])
-        if predict_label == actual:
-            print ("Correct: {}, {}".format(predict_label, confidence))
-        else:
-            print ("Incorrect :(: {}, {}".format(predict_label, actual))
+    # Placeholders
+    x = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE[0] * IMAGE_SIZE[1]])
+    y_ = tf.placeholder(tf.int32, [num_classes])
+
+    # Convolution 1
+    weight_conv1 = weight_variable([5, 5, 1, 32])
+    bias_conv1 = bias_variable([32])
+    x_image = tf.reshape(x, [-1, 160, 160, 1])
+    h_conv1 = tf.nn.relu(conv2d(x_image, weight_conv1) + bias_conv1)
+
+    # Pooling 1 : 160x160 -> 80x80
+    h_pool1 = max_pool_2x2(h_conv1)
+
+    # Convolution 2
+    weight_conv2 = weight_variable([5, 5, 32, 64])
+    bias_conv2 = bias_variable([64])
+    h_conv2 = tf.nn.relu(conv2d(h_pool1, weight_conv2) + bias_conv2)
+
+    # Pooling 2 :  80x80 -> 40x40
+    h_pool2 = max_pool_2x2(h_conv2)
+
+    # Fully connected layer 1
+    w_fc1 = weight_variable([40*40*64, 1024])
+    b_fc1 = bias_variable([1024])
+    h_pool2_flattened = tf.reshape(h_pool2, [-1, 40*40*64])
+    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flattened, w_fc1) + b_fc1)
+    keep = tf.placeholder(tf.float32)
+    h_fc1_drop = tf.nn.dropout(h_fc1, keep)
+
+
+    # Fully Connected Layer 2
+    weight_fc2 = weight_variable([1024, len(unique_labels)])
+    bias_fc2 = bias_variable([len(unique_labels)])
+    y_conv = tf.matmul(h_fc1_drop, weight_fc2) + bias_fc2
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+
+    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+    print("Training...")
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        for i in range(epochs):
+            for batch in range(num_images//batch_size):
+                # curr_batch = image_tensors[batch*batch_size:(1+batch) * batch_size]
+
+                # Read images, convert to grayscale and resize to 160*160 (by default they are 161*161)
+                curr_batch = images[batch * batch_size : (1 + batch) * batch_size]
+                gray_batch = [cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) for image in curr_batch]
+                resized_batch = [cv2.resize(i, IMAGE_SIZE, interpolation=cv2.INTER_AREA) for i in gray_batch]
+                # Flatten images and feed into network
+                flat_batch = [i.flatten() for i in resized_batch]
+                curr_batch = flat_batch
+                # Get labels
+                curr_labels = all_labels[batch * batch_size : (1 + batch) * batch_size]
+                sess.run([train_step], feed_dict={x:curr_batch, y_:curr_labels, keep:0.7})
+            # curr_batch = next_batch(10, image_tensors, all_labels)
+            if i % 10 == 0:
+                train_accuracy = accuracy.eval(feed_dict={x:curr_batch, y_: curr_labels, keep: 1.0})
+                print("step %d, training accuracy %g" % (i, train_accuracy))
+            train_step.run(feed_dict={x: curr_batch, y_:curr_labels, keep: 0.5})
+
+        print("test accuracy %g" % accuracy.eval(feed_dict={x: curr_batch, y_: curr_labels, keep: 1.0}))
+
+if __name__ == "__main__":
+    main()
