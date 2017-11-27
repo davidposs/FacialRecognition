@@ -10,8 +10,8 @@ from datetime import datetime
 EPOCHS = 10
 BATCH_SIZE = 8
 IMAGE_SIZE = (180, 180)
-TRAIN_PATH = "../../Data/SmallTrain/"
-TEST_PATH = "../../Data/SmallTest/"
+TRAIN_PATH = "../../Data/NewTrain/"
+TEST_PATH = "../../Data/NewTest/"
 
 
 def get_paths_and_labels(path):
@@ -72,11 +72,11 @@ def encode_labels(train_labels, test_labels):
 def main():
     """ Main CNN code """
     train_image_paths, train_labels = get_paths_and_labels(TRAIN_PATH)
-    train_images = [cv2.imread(image) for image in train_image_paths]
+    train_images = [gray(cv2.imread(image)).flatten() for image in train_image_paths]
     num_train_images = len(train_image_paths)
 
     test_image_paths, test_labels = get_paths_and_labels(TEST_PATH)
-    test_images = [cv2.imread(image) for image in test_image_paths]
+    test_images = [gray(cv2.imread(image)).flatten() for image in test_image_paths]
 
     num_classes = len(set(train_labels))
 
@@ -86,7 +86,7 @@ def main():
     x_image = tf.reshape(x, [-1, IMAGE_SIZE[0], IMAGE_SIZE[1], 1])
 
     # One-hot labels
-    ztrain_labels, ztest_labels, mapping = encode_labels(train_labels, test_labels)
+    train_labels, test_labels, mapping = encode_labels(train_labels, test_labels)
 
     train_labels = tf.one_hot(indices=tf.cast(train_labels, tf.int32), depth=num_classes)
     test_labels = tf.one_hot(indices=tf.cast(test_labels, tf.int32), depth=num_classes)
@@ -136,7 +136,7 @@ def main():
             for batch_num in range(num_train_images//BATCH_SIZE):
                 # Read images, convert to gray-scale, resize to 180x180 and flatten them
                 curr_batch = train_images[batch_num * BATCH_SIZE : (batch_num + 1) * BATCH_SIZE]
-                curr_batch = [gray(image).flatten() for image in curr_batch]
+                #curr_batch = [gray(image).flatten() for image in curr_batch]
                 # Get labels for current batch
                 curr_labels = train_labels[batch_num * BATCH_SIZE : (batch_num + 1) * BATCH_SIZE]
                 sess.run([train_step], feed_dict={x:curr_batch, y_:curr_labels, keep:0.5})
@@ -151,16 +151,16 @@ def main():
             feed_dict={x: curr_batch, y_: curr_labels, keep: 0.4})))
         # Run test set
         test_labels = test_labels.eval()
-        test_images =[gray(image).flatten() for image in test_images]
+        #test_images =[gray(image).flatten() for image in test_images]
         print("Test Accuracy {}".format(accuracy.eval(feed_dict={x:test_images, y_:test_labels, keep:1.0})))
 
         # Predict
-        pred_image = "../../david16centerlight.jpg"
+        pred_image = "../../ardper.13.jpg"
         prediction = tf.argmax(y_conv, 1)
         flat = gray(resize(cv2.imread(pred_image))).flatten()
         pred = prediction.eval(feed_dict={x:[flat], keep:1.0}, session=sess)
         print(pred)
-        print("Correct: {}".format(mapping['davidposs']))
+        print("Correct: {}".format(mapping['ardper']))
 
 
 if __name__ == "__main__":
