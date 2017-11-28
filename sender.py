@@ -1,74 +1,70 @@
 """ Program to send an image to a remote server (AWS EC2 instance) """
+
 import socket
 import re
-import sys
+import os
 
-HOST = "54.215.129.201"
-PORT = 45400
-IMAGE_PATH = "david16centerlight.jpg"
+IMAGE_PATH = "../../Data/SmallTest/davidposs.1.jpg"
+INDENT = " " * 4
 
-def open_session(username, password):
-    os.system("putty.exe {}@{} -pw {}".format(username, HOST, password))
+
+def open_session(username, password, host):
+    os.system("putty.exe {}@{} -pw {}".format(username, host, password))
+
+
+def connect_to_server(host, port):
+    client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_sock.connect((host, port))
+    return client_sock
+
+
+def send_label(label, client_sock):
+    print("[*] Sending label to server...")
+    message = "LABEL " + label
+    client_sock.sendall(message.encode())
+    print("{}[+] Sent label to server".format(INDENT))
+
+def send_image_size(size, client_sock):
+    """ Sends image size so server knows when to stop receiving """
+    print("[*] Sending image size...")
+    message = "SIZE " + str(size)
+    client_sock.sendall(message.encode())
+    print("{}[+] Sent image size of {}".format(INDENT, size))
+
+def send_image(image_path,client_sock):
+    try:
+        print("[*] Sending image to server... ")
+        with open(image_path, "rb") as image_file:
+            chunk = image_file.read(1024)
+            while (chunk):
+                print("Sending data...")
+                client_sock.sendall(chunk)
+                chunk = image_file.read(1024)
+        return True
+    except:
+        print("{}[!] Error sending file, stopping.".format(INDENT))
+        return False
+
 
 def main():
-    image_file = open(IMAGE_PATH,'rb')
-
+    host = "54.215.129.201"
+    port = 45400
     # Regular expression to grab the labels from the pathname
-    subject_name = re.findall(r'[^/]*$', IMAGE_PATH)[0].split(".")[0]
+    username = re.findall(r'[^/]*$', IMAGE_PATH)[0].split(".")[0]
+    with open(IMAGE_PATH, "rb") as image:
+        size = len(image.read())
 
-    client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_sock.connect((HOST, PORT))
+    client_sock = connect_to_server(host, port)
 
-    message = "LABEL " + subject_name
-    client_sock.sendall(message.encode())
-    image_size = len(image_file.read())
+    send_label(username, client_sock)
+    send_image_size(size, client_sock)
+    send_image(IMAGE_PATH, client_sock)
 
-
-    chunk = image_file.read(1024)
-    while (chunk):
-        print("Sending data...")
-        client_sock.sendall(chunk)
-        chunk = image_file.read(1024)
-    image_file.close()
-    print("File sent!")
-
-    message = "FIN"
-    client_sock.sendall(message.encode())
-    response = client_sock.recv(1024)
-    if response.decode() == "END":
-        password = client_sock.recv(1024)
-        password = password.decode()
-        print("Got password: {}".format(password))
-    else:
-        print("Didn't get END")
-
-    client_sock.shutdown(socket.SHUT_WR)
-    print(client_sock.recv(1024))
-    client_sock.close()
-
+    password = client_sock.recv(1024)
+    if password:
+        print("Got my password! {}".format(password))
+        open_session(username, password, host)
+    return
 
 if __name__ == "__main__":
     main()
-"""
-try:
-    print("Opening image")
-    image = open(IMAGE_PATH, "rb")
-    data = image.read()
-    size = len(data)
-    print("Sending size")
-    message = "SIZE {}".format(size)
-    client_sock.sendall(message.encode())
-    print("Waiting for server response")
-    server_response = client_sock.recv(BUFF_SIZE)
-    print(server_response.decode())
-    if server_response.decode() == "Size received":
-        print("Server received size, sending data")
-        client_sock.sendall(data)
-        server_response = client_sock.recv(BUFF_SIZE)
-        if server_response.decode() == "Image received":
-            client_sock.sendall("BYE".encode())
-            print("Server received {}, exiting now.".format(IMAGE_PATH))
-    image.close()
-finally:
-    client_sock.close()
-"""
