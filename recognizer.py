@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """ Facial Recognition Program using University of Essex Dataset """
 
+from collections import OrderedDict
 from datetime import datetime
 import time
 import tempfile
 import os
 import cv2
+
 import tensorflow as tf
 
 EPOCHS = 10
@@ -27,7 +29,7 @@ def get_paths_and_labels(path):
 
 def weight_variable(shape):
     """ Create a weight variable for a given shape """
-    initial = tf.truncated_normal(shape, stddev=0.1)
+    initial = tf.truncated_normal(shape, stddev=1.0)
     return tf.Variable(initial)
 
 
@@ -61,7 +63,7 @@ def encode_labels(train_labels, test_labels):
     """ Assigns a numeric value to each label since some are subject's names """
     found_labels = []
     index = 0
-    mapping = {}
+    mapping = OrderedDict()
     for i in train_labels:
         if i in found_labels:
             continue
@@ -107,25 +109,25 @@ def main():
     test_labels = tf.one_hot(indices=tf.cast(test_labels, tf.int32), depth=num_classes)
 
     with tf.name_scope("Convolution1"):
-        weight_conv1 = weight_variable([5, 5, 1, 32])
-        bias_conv1 = bias_variable([32])
+        weight_conv1 = weight_variable([5, 5, 1, 64])
+        bias_conv1 = bias_variable([64])
         h_conv1 = tf.nn.relu(conv2d(x_image, weight_conv1) + bias_conv1)
 
     with tf.name_scope("Pooling1"): # Pools 180x180 -> 90x90
         h_pool1 = max_pool_2x2(h_conv1)
 
     with tf.name_scope("Convolution2"):
-        weight_conv2 = weight_variable([5, 5, 32, 64])
-        bias_conv2 = bias_variable([64])
+        weight_conv2 = weight_variable([5, 5, 64, 128])
+        bias_conv2 = bias_variable([128])
         h_conv2 = tf.nn.relu(conv2d(h_pool1, weight_conv2) + bias_conv2)
 
     with tf.name_scope("Pooling2"): # Pools 90x90 -> 45x45
         h_pool2 = max_pool_2x2(h_conv2)
 
     with tf.name_scope("FC1"):
-        weight_fc1 = weight_variable([45*45*64, 1024])
+        weight_fc1 = weight_variable([45*45*128, 1024])
         bias_fc1 = bias_variable([1024])
-        h_pool2_flattened = tf.reshape(h_pool2, [-1, 45*45*64])
+        h_pool2_flattened = tf.reshape(h_pool2, [-1, 45*45*128])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flattened, weight_fc1) + bias_fc1)
 
     with tf.name_scope("Dropout"):

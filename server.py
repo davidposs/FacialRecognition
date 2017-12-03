@@ -1,5 +1,6 @@
 
 import sys
+import os
 import socket
 import authenticate
 INDENT = " " * 4
@@ -85,7 +86,7 @@ def retrieve_credentials(username):
     os.system("bash decrypt.sh")
     with open("passwords.txt", "r") as pwords:
         for line in pwords:
-            if line.startswith(name):
+            if line.startswith(username):
                 password = line.split(":")[1]
                 os.system("bash encrypt.sh")
                 return password
