@@ -1,29 +1,36 @@
-# -*- coding: utf-8 -*-
-""" Facial Recognition Program using University of Essex Dataset """
+"""
+Created on Thu Nov 16 16:27:29 2017
+@author: David Poss
+
+Facial Recognition Program using University of Essex Dataset
+"""
 
 from collections import OrderedDict
 from datetime import datetime
 import time
 import tempfile
 import os
+import re
 import cv2
 
 import tensorflow as tf
 
 EPOCHS = 10
 BATCH_SIZE = 50
-# All images are sized at 180 x 180
-IMAGE_SIZE = (180, 180)
-TRAIN_PATH = "../../Data/NewTrain/"
-TEST_PATH = "../../Data/NewTest/"
+# All images are sized at 320x240
+IMAGE_SIZE = (320, 240)
+TRAIN_PATH = "../../Data/EyeTrain/"
+TEST_PATH = "../../Data/EyeTest/"
 
 
 def get_paths_and_labels(path):
     """ image_paths  :  list of relative image paths
         labels       :  mix of letters and numeric characters """
     image_paths = [path + image for image in os.listdir(path)]
-    labels = [i.split(".")[-3] for i in image_paths]
-    labels = [i.split("/")[-1] for i in labels]
+    # labels = [i.split(".")[-3] for i in image_paths]
+    # labels = [i.split("/")[-1] for i in labels]
+    labels = [re.findall(r'[^/]*$', img_path)[0].split(".")[0] for img_path in image_paths]
+    labels = [label[0:-2] for label in labels]
     return image_paths, labels
 
 
@@ -72,9 +79,9 @@ def encode_labels(train_labels, test_labels):
         found_labels.append(i)
     return [mapping[i] for i in train_labels], [mapping[i] for i in test_labels], mapping
 
+
 def predict(pred_image, y_conv, x_images, keep, sess):
     """ Provided an input path, """
-    pred_image = "../../ardper.13.jpg"
     prediction = tf.argmax(y_conv, 1)
     flat = gray(resize(cv2.imread(pred_image))).flatten()
     pred = prediction.eval(feed_dict={x_images: [flat], keep: 1.0}, session=sess)
@@ -125,9 +132,9 @@ def main():
         h_pool2 = max_pool_2x2(h_conv2)
 
     with tf.name_scope("FC1"):
-        weight_fc1 = weight_variable([45*45*128, 1024])
+        weight_fc1 = weight_variable([80*60*128, 1024])
         bias_fc1 = bias_variable([1024])
-        h_pool2_flattened = tf.reshape(h_pool2, [-1, 45*45*128])
+        h_pool2_flattened = tf.reshape(h_pool2, [-1, 80*60*128])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flattened, weight_fc1) + bias_fc1)
 
     with tf.name_scope("Dropout"):
@@ -182,8 +189,8 @@ def main():
         print("Test Accuracy {}".format(test_accuracy))
 
         # Predict
-        prediction = predict("../../ardper.13.jpg", y_conv, x_images, keep, sess)
-        print("Guessed {}, Correct {}".format(prediction, mapping['ardper']))
+        prediction = predict("../../Data/aeval3.jpg", y_conv, x_images, keep, sess)
+        print("Guessed {}, Correct {}".format(prediction, mapping['aeval']))
 
 
 if __name__ == "__main__":
