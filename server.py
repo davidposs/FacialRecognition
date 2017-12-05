@@ -1,4 +1,4 @@
-""" 
+"""
     Server side program to listen for images sent to this server on port 45400
     Responsibilities:
         * Listen for images
@@ -7,7 +7,6 @@
         * If face is not recognized, send an error to the client
 """
 
-import sys
 import os
 import socket
 import authenticate
@@ -74,12 +73,12 @@ def receive_image(client_sock, file_name, size):
         while data and bytes_received <= size:
             data = client_sock.recv(1024)
             bytes_received += len(data)
-            print ("{}[+] Received {} bytes, {} total".format(INDENT, len(data), bytes_received))
+            print("{}[+] Received {} bytes, {} total".format(INDENT, len(data), bytes_received))
             image.write(data)
         print("{}[+] Finished receiving data".format(INDENT))
         image.close()
         return True
-    except KeyboardInterrupt as term_signal:
+    except KeyboardInterrupt:
         print("{}[!] User quitting, closing connection".format(INDENT))
         try:
             client_sock.close()
@@ -91,7 +90,7 @@ def receive_image(client_sock, file_name, size):
 
 def retrieve_credentials(username):
     """ THIS IS VERY BAD PRACTICE AND IF YOU'RE READING THIS CODE, KNOW THAT I HATE IT WITH
-        EVERY FIBER OF MY BEING. I plan on fixing this in the future, but for now it is just a 
+        EVERY FIBER OF MY BEING. I plan on fixing this in the future, but for now it is just a
         temporary place holder until I figure out how to generate attribute-based credentials. """
     os.system("bash decrypt.sh")
     password = None
@@ -109,27 +108,27 @@ def retrieve_credentials(username):
 
 def send_credentials(client_sock, password):
     """ Along with above this is VERY BAD PRACTICE, and I hate it, but this
-        function sends the user's password in PLAINTEXT back to them 
+        function sends the user's password in PLAINTEXT back to them
         For any potential employers, I would not code like this professionally. """
 
     client_sock.sendall(password.encode())
 
 def handle_client(host, port, file_type):
     """ Handles 1 client at a time.
-    TODO: enable multithreading of client requests """ 
-    server_sock, client_sock, addr = connect_to_client(host, port)
+    TODO: enable multithreading of client requests """
+    _, client_sock, addr = connect_to_client(host, port)
     username = receive_label(client_sock)
     file_name = username + file_type
-    image_size = receive_size(client_sock) 
+    image_size = receive_size(client_sock)
 
     if receive_image(client_sock, file_name, image_size):
         print("[*] Wrote data to {}".format(file_name))
-    else: 
+    else:
         print("[*] Error receiving image")
         client_sock.shutdown(socket.SHUT_WR)
-        client_sock.close() 
-        
-    print ("\n\n[*************** Authenticating ***************]")
+        client_sock.close()
+
+    print("\n\n[*************** Authenticating ***************]")
     if authenticate.is_valid_user(username):
         if authenticate.authenticate(username, file_name):
             print("[*] Welcome back {}".format(username))
@@ -143,14 +142,14 @@ def handle_client(host, port, file_type):
         print("[!] Not success\n")
 
     client_sock.shutdown(socket.SHUT_WR)
-    client_sock.close() 
+    client_sock.close()
 
 def main():
     """ Loops handle_client infinitely to handle client requests """
     host = "0.0.0.0"
     port = 45400
     file_type = ".jpg"
-    
+
     while True:
         try:
             handle_client(host, port, file_type)

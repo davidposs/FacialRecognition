@@ -16,21 +16,21 @@ import cv2
 import tensorflow as tf
 
 EPOCHS = 10
-BATCH_SIZE = 50
+BATCH_SIZE = 5
 # All images are sized at 320x240
-IMAGE_SIZE = (320, 240)
-TRAIN_PATH = "../../Data/EyeTrain/"
-TEST_PATH = "../../Data/EyeTest/"
+IMAGE_SIZE = (180, 180)
+TRAIN_PATH = "../../Data/SmallerTrain/"
+TEST_PATH = "../../Data/SmallerTest/"
 
 
 def get_paths_and_labels(path):
     """ image_paths  :  list of relative image paths
         labels       :  mix of letters and numeric characters """
     image_paths = [path + image for image in os.listdir(path)]
-    # labels = [i.split(".")[-3] for i in image_paths]
-    # labels = [i.split("/")[-1] for i in labels]
-    labels = [re.findall(r'[^/]*$', img_path)[0].split(".")[0] for img_path in image_paths]
-    labels = [label[0:-2] for label in labels]
+    labels = [i.split(".")[-3] for i in image_paths]
+    labels = [i.split("/")[-1] for i in labels]
+    #labels = [re.findall(r'[^/]*$', img_path)[0].split(".")[0] for img_path in image_paths]
+    #labels = [label[0:-2] for label in labels]
     return image_paths, labels
 
 
@@ -112,29 +112,30 @@ def main():
 
     # One-hot labels
     train_labels, test_labels, mapping = encode_labels(train_labels, test_labels)
+
     train_labels = tf.one_hot(indices=tf.cast(train_labels, tf.int32), depth=num_classes)
     test_labels = tf.one_hot(indices=tf.cast(test_labels, tf.int32), depth=num_classes)
 
     with tf.name_scope("Convolution1"):
-        weight_conv1 = weight_variable([5, 5, 1, 64])
-        bias_conv1 = bias_variable([64])
+        weight_conv1 = weight_variable([5, 5, 1, 32])
+        bias_conv1 = bias_variable([32])
         h_conv1 = tf.nn.relu(conv2d(x_image, weight_conv1) + bias_conv1)
 
     with tf.name_scope("Pooling1"): # Pools 180x180 -> 90x90
         h_pool1 = max_pool_2x2(h_conv1)
 
     with tf.name_scope("Convolution2"):
-        weight_conv2 = weight_variable([5, 5, 64, 128])
-        bias_conv2 = bias_variable([128])
+        weight_conv2 = weight_variable([5, 5, 32, 64])
+        bias_conv2 = bias_variable([64])
         h_conv2 = tf.nn.relu(conv2d(h_pool1, weight_conv2) + bias_conv2)
 
     with tf.name_scope("Pooling2"): # Pools 90x90 -> 45x45
         h_pool2 = max_pool_2x2(h_conv2)
 
     with tf.name_scope("FC1"):
-        weight_fc1 = weight_variable([80*60*128, 1024])
-        bias_fc1 = bias_variable([1024])
-        h_pool2_flattened = tf.reshape(h_pool2, [-1, 80*60*128])
+        weight_fc1 = weight_variable([45*45*64, 64])
+        bias_fc1 = bias_variable([64])
+        h_pool2_flattened = tf.reshape(h_pool2, [-1, 45*45*64])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flattened, weight_fc1) + bias_fc1)
 
     with tf.name_scope("Dropout"):
@@ -142,7 +143,7 @@ def main():
         h_fc1_drop = tf.nn.dropout(h_fc1, keep)
 
     with tf.name_scope("FC2"):
-        weight_fc2 = weight_variable([1024, num_classes])
+        weight_fc2 = weight_variable([64, num_classes])
         bias_fc2 = bias_variable([num_classes])
         y_conv = tf.matmul(h_fc1_drop, weight_fc2) + bias_fc2
 
@@ -189,8 +190,8 @@ def main():
         print("Test Accuracy {}".format(test_accuracy))
 
         # Predict
-        prediction = predict("../../Data/aeval3.jpg", y_conv, x_images, keep, sess)
-        print("Guessed {}, Correct {}".format(prediction, mapping['aeval']))
+        prediction = predict("../../Data/davidposs.21.jpg", y_conv, x_images, keep, sess)
+        print("Guessed {}, Correct {}".format(prediction, mapping['davidposs']))
 
 
 if __name__ == "__main__":

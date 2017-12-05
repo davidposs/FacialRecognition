@@ -15,8 +15,9 @@ import os
 import cv2
 
 OUT_TYPE = ".jpg"
-TEST_PATH = "../../Data/Test/"
-TRAIN_PATH = "../../Data/Train/"
+TRAIN_PATH = "../../Data/SmallerTrain/"
+TEST_PATH = "../../Data/SmallerTest/"
+PREDICT_PATH = "../../Data/"
 
 
 def main():
@@ -25,26 +26,29 @@ def main():
         Press 's' to save a face """
 
     name = input("Enter your name: ")
+    predict = input("Save an image for prediction? (y/n): ")
+
     cascades = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
     video_capture = cv2.VideoCapture(0)
-    known_faces = os.listdir(TRAIN_PATH)
-    labels = known_faces
-
+    labels = os.listdir(TRAIN_PATH)
     labels = [re.findall(r'[^/]*$', i)[0].split(".")[0] for i in labels]
 
-    while name in labels:
-        print("That name is taken: choose another")
-        name = input("Enter your name: ")
+    #while name in labels:
+    #    print("That name is taken: choose another")
+    #    name = input("Enter your name: ")
 
-    for i in range(1, 21):
+
+    for i in range(20, 40):
         print("taking picture {}".format(i))
         while True:
             _, frame = video_capture.read()
-            grayed = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = cascades.detectMultiScale(grayed, scaleFactor=1.1, minNeighbors=5)
+            # grayed = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = cascades.detectMultiScale(frame, scaleFactor=1.1, minNeighbors=5)
             # Get x, y coordinates and width and height of face
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
+            x_pos, y_pos, width, height = None, None, None, None
+            for (x_pos, y_pos, width, height) in faces:
+                cv2.rectangle(frame, (x_pos, y_pos), (x_pos + width, y_pos + height),
+                              (0, 255, 255), 2)  # RGB values and thickness of detection box
             cv2.imshow('Webcam', frame)
 
             key_press = cv2.waitKey(1)
@@ -52,17 +56,28 @@ def main():
             if key_press & 0xFF == ord('q'):
                 break
             elif key_press & 0xFF == ord('s'):
-                face_to_save = frame[y:y + h, x:x + w]
-                cropped_face = cv2.resize(face_to_save, (180, 180), interpolation=cv2.INTER_AREA)
-                cropped_face = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2GRAY)
-                cv2.imshow("Save this?", cropped_face)
+                if x_pos is None or y_pos is None or width is None or height is None:
+                    print("No face detected")
+                    break
+                face_to_save = frame[y_pos:y_pos + height, x_pos:x_pos + width]
+                # Crop the face to 180 x 180
+                face_to_save = cv2.resize(face_to_save, (180, 180), interpolation=cv2.INTER_AREA)
+                # Convert to gray scale
+                face_to_save = cv2.cvtColor(face_to_save, cv2.COLOR_BGR2GRAY)
+                cv2.imshow("Save this?", face_to_save)
                 # Separate into training and testing folders using 80-20 split
-                if i < 5:
+                if predict == "y":
+                    print("Saving to {}".format(PREDICT_PATH + name + "." + str(454) + OUT_TYPE))
+                    cv2.imwrite(PREDICT_PATH + name + "." + str(i) + OUT_TYPE, face_to_save)
+                    video_capture.release()
+                    cv2.destroyAllWindows()
+                    return
+                if i < 26:
                     print("Save to {}".format(TEST_PATH + name + "." + str(i) + OUT_TYPE))
-                    #cv2.imwrite(TEST_PATH + name + "." + str(i) + OUT_TYPE, cropped_face)
+                    cv2.imwrite(TEST_PATH + name + "." + str(i) + OUT_TYPE, face_to_save)
                 else:
                     print("Save to {}".format(TRAIN_PATH + name + "." + str(i) + OUT_TYPE))
-                    #cv2.imwrite(TRAIN_PATH + name + "." + str(i) + OUT_TYPE, cropped_face)
+                    cv2.imwrite(TRAIN_PATH + name + "." + str(i) + OUT_TYPE, face_to_save)
                 break
 
     # Stop recording and close windows
