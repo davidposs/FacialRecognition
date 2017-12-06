@@ -1,5 +1,6 @@
 """ Program to authenticate a user's image against their username """
 
+import recognizer
 import sys
 import subprocess
 
@@ -11,9 +12,9 @@ def is_valid_user(username):
     return username in users
 
 
-def authenticate(username, image):
+def authenticate(username, image_path):
     """ Handles running the image through the Facial Recognition program and returns a response
         indicating whether or not they were authenticated. """
-    return image.startswith(username)
-
+    # return image.startswith(username)
+    return recognizer.run_model(username, image_path)
 

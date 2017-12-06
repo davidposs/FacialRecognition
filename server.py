@@ -7,6 +7,7 @@
         * If face is not recognized, send an error to the client
 """
 
+import sys
 import os
 import socket
 import authenticate
@@ -69,8 +70,9 @@ def receive_image(client_sock, file_name, size):
     try:
         image = open(file_name, "wb")
         bytes_received = 0
-        data = ""
-        while data and bytes_received <= size:
+        # data = ""
+        #while data and bytes_received <= size:
+        while bytes_received < size:
             data = client_sock.recv(1024)
             bytes_received += len(data)
             print("{}[+] Received {} bytes, {} total".format(INDENT, len(data), bytes_received))
@@ -149,16 +151,17 @@ def main():
     host = "0.0.0.0"
     port = 45400
     file_type = ".jpg"
-
     while True:
         try:
             handle_client(host, port, file_type)
-        #except KeyboardInterrupt as user_quit:
-        #    print("[!] <ctrl+C> pressed, user quitting...")
-        #    return
+        except KeyboardInterrupt as user_quit:
+            print("[!] <ctrl+C> pressed, user quitting...")
+            return
         except:
             # Do nothing for now?
             print("There was an error handling previous client")
+            continue
+
 
 if __name__ == "__main__":
     main()

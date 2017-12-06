@@ -19,8 +19,8 @@ EPOCHS = 10
 BATCH_SIZE = 5
 # All images are sized at 320x240
 IMAGE_SIZE = (180, 180)
-TRAIN_PATH = "../../Data/SmallerTrain/"
-TEST_PATH = "../../Data/SmallerTest/"
+TRAIN_PATH = "../../Data/Train/"
+TEST_PATH = "../../Data/Test/"
 
 
 def get_paths_and_labels(path):
@@ -80,7 +80,7 @@ def encode_labels(train_labels, test_labels):
     return [mapping[i] for i in train_labels], [mapping[i] for i in test_labels], mapping
 
 
-def predict(pred_image, y_conv, x_images, keep, sess):
+def validate_user(pred_image, y_conv, x_images, keep, sess):
     """ Provided an input path, """
     prediction = tf.argmax(y_conv, 1)
     flat = gray(resize(cv2.imread(pred_image))).flatten()
@@ -88,7 +88,7 @@ def predict(pred_image, y_conv, x_images, keep, sess):
     return pred
 
 
-def main():
+def run_model(username, user_path):
     """ Main CNN code """
     train_image_paths, train_labels = get_paths_and_labels(TRAIN_PATH)
     train_images = [gray(cv2.imread(image)).flatten() for image in train_image_paths]
@@ -190,9 +190,9 @@ def main():
         print("Test Accuracy {}".format(test_accuracy))
 
         # Predict
-        prediction = predict("../../Data/davidposs.21.jpg", y_conv, x_images, keep, sess)
-        print("Guessed {}, Correct {}".format(prediction, mapping['davidposs']))
-
+        prediction = validate_user(user_path, y_conv, x_images, keep, sess)
+        # print("Guessed {}, Correct {}".format(prediction, mapping['davidposs']))
+        return prediction == mapping[username]
 
 if __name__ == "__main__":
     main()
